@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -r app/requirements-dev.txt
+      - run: flake8 app/
+      - run: pytest app/
+
+  build_push:
+    runs-on: ubuntu-latest
+    needs: lint-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build de l'image
+        run: docker build -t ghcr.io/walkerulrich/task-api-devops-test:${{ github.sha }} .
+
+      - name: Scan de l'image avec Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'ghcr.io/walkerulrich/task-api-devops-test:${{ github.sha }}'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Connexion au registre ghcr.io
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag de l'image avec latest
+        if: github.ref == 'refs/heads/main'
+        run: docker tag ghcr.io/walkerulrich/task-api-devops-test:${{ github.sha }} ghcr.io/walkerulrich/task-api-devops-test:latest
+
+      - name: Push des images
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker push ghcr.io/walkerulrich/task-api-devops-test:${{ github.sha }}
+          docker push ghcr.io/walkerulrich/task-api-devops-test:latest
