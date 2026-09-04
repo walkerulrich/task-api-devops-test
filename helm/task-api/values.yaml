@@ -1,0 +1,21 @@
+image:
+  repository: ghcr.io/walkerulrich/task-api-devops-test
+  tag: latest
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+service:
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: false
+  host: task-api.local
